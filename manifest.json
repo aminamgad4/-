@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "ETA Invoice Exporter - Enhanced",
+  "version": "2.0.0",
+  "description": "مصدر فواتير الضرائب المصرية المحسن - تحميل جميع الفواتير تلقائياً",
+  
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  
+  "host_permissions": [
+    "https://invoicing.eta.gov.eg/*"
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["https://invoicing.eta.gov.eg/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ETA Invoice Exporter Enhanced"
+  },
+  
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["libs/*.js"],
+      "matches": ["https://invoicing.eta.gov.eg/*"]
+    }
+  ]
+}

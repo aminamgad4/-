@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ETA Invoice Exporter - Enhanced</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 500px;
+      min-height: 700px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8f9fa;
+      direction: rtl;
+      text-align: right;
+      line-height: 1.6;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    
+    .header p {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .stats-container {
+      background: white;
+      margin: 15px;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+      border: 1px solid #e3f2fd;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid #dee2e6;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #1e3c72;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #6c757d;
+      font-weight: 500;
+    }
+
+    .download-mode-selector {
+      background: white;
+      margin: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+      overflow: hidden;
+      border: 1px solid #e3f2fd;
+    }
+
+    .mode-header {
+      background: #1e3c72;
+      color: white;
+      padding: 12px 20px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .mode-options {
+      padding: 20px;
+    }
+
+    .mode-option {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: #f8f9fa;
+    }
+
+    .mode-option:hover {
+      border-color: #2a5298;
+      background: #e3f2fd;
+    }
+
+    .mode-option.selected {
+      border-color: #1e3c72;
+      background: #e3f2fd;
+      box-shadow: 0 2px 8px rgba(30, 60, 114, 0.2);
+    }
+
+    .mode-option input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      margin-left: 12px;
+      accent-color: #1e3c72;
+    }
+
+    .mode-content {
+      flex: 1;
+    }
+
+    .mode-title {
+      font-weight: bold;
+      font-size: 13px;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .mode-description {
+      font-size: 11px;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    .mode-badge {
+      background: #28a745;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-right: 8px;
+    }
+
+    .mode-badge.warning {
+      background: #ffc107;
+      color: #212529;
+    }
+
+    .fields-container {
+      background: white;
+      margin: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+      border: 1px solid #e3f2fd;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .fields-header {
+      background: #1e3c72;
+      color: white;
+      padding: 12px 20px;
+      font-weight: bold;
+      font-size: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .fields-content {
+      padding: 15px 20px;
+    }
+
+    .select-all-container {
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    .select-all-option {
+      background: #f8f9fa;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .select-all-option:hover {
+      background: #e9ecef;
+      border-color: #adb5bd;
+    }
+
+    .select-all-option input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin-left: 10px;
+      accent-color: #1e3c72;
+    }
+
+    .select-all-label {
+      font-weight: bold;
+      color: #495057;
+      font-size: 13px;
+    }
+
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      border-radius: 6px;
+      transition: background-color 0.2s;
+      font-size: 12px;
+    }
+
+    .checkbox-item:hover {
+      background-color: #f8f9fa;
+    }
+
+    .checkbox-item input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      margin-left: 8px;
+      accent-color: #1e3c72;
+    }
+
+    .checkbox-item label {
+      font-size: 11px;
+      color: #555;
+      cursor: pointer;
+      user-select: none;
+      flex: 1;
+      line-height: 1.3;
+    }
+
+    .progress-container {
+      background: white;
+      margin: 15px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+      border: 1px solid #e3f2fd;
+      display: none;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .progress-title {
+      font-weight: bold;
+      color: #1e3c72;
+      font-size: 14px;
+    }
+
+    .progress-cancel {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .progress-cancel:hover {
+      background: #c82333;
+    }
+
+    .progress-bar-container {
+      background: #e9ecef;
+      border-radius: 10px;
+      height: 24px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .progress-bar {
+      background: linear-gradient(90deg, #28a745, #20c997);
+      height: 100%;
+      border-radius: 10px;
+      width: 0%;
+      transition: width 0.3s ease;
+      position: relative;
+    }
+
+    .progress-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .progress-text {
+      text-align: center;
+      font-size: 13px;
+      color: #495057;
+      font-weight: 500;
+    }
+
+    .progress-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .progress-detail {
+      text-align: center;
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #dee2e6;
+    }
+
+    .progress-detail-value {
+      font-weight: bold;
+      color: #1e3c72;
+      font-size: 14px;
+    }
+
+    .progress-detail-label {
+      font-size: 10px;
+      color: #6c757d;
+      margin-top: 2px;
+    }
+
+    .buttons-container {
+      background: white;
+      margin: 15px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+      border: 1px solid #e3f2fd;
+    }
+
+    .buttons-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .btn {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-excel {
+      background: linear-gradient(135deg, #28a745, #20c997);
+      color: white;
+    }
+
+    .btn-json {
+      background: linear-gradient(135deg, #ffc107, #fd7e14);
+      color: #212529;
+    }
+
+    .btn-close {
+      background: linear-gradient(135deg, #dc3545, #c82333);
+      color: white;
+      grid-column: 1 / -1;
+    }
+
+    .status-container {
+      margin: 0 15px 15px;
+      min-height: 20px;
+    }
+
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .status.loading {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    .loading-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #0c5460;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .disclaimer {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 15px;
+      font-size: 11px;
+      color: #856404;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .enhanced-badge {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-right: 8px;
+      display: inline-block;
+    }
+
+    /* Custom scrollbar */
+    .fields-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .fields-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    .fields-container::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+    }
+
+    .fields-container::-webkit-scrollbar-thumb:hover {
+      background: #a1a1a1;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><span class="enhanced-badge">محسن</span>مصدر فواتير الضرائب المصرية</h1>
+    <p>تحميل جميع الفواتير تلقائياً مع تتبع مفصل للتقدم</p>
+  </div>
+
+  <div class="stats-container">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="currentPageCount">-</div>
+        <div class="stat-label">فواتير الصفحة الحالية</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="totalInvoicesCount">-</div>
+        <div class="stat-label">إجمالي الفواتير</div>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="currentPageNumber">-</div>
+        <div class="stat-label">الصفحة الحالية</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="totalPagesCount">-</div>
+        <div class="stat-label">إجمالي الصفحات</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="download-mode-selector">
+    <div class="mode-header">
+      <i class="fas fa-download"></i> اختر نمط التحميل
+    </div>
+    <div class="mode-options">
+      <div class="mode-option" data-mode="current">
+        <input type="radio" name="downloadMode" value="current" id="mode-current">
+        <div class="mode-content">
+          <div class="mode-title">
+            <span class="mode-badge">سريع</span>
+            الصفحة الحالية فقط
+          </div>
+          <div class="mode-description">
+            تحميل الفواتير الظاهرة في الصفحة الحالية (سريع ومضمون)
+          </div>
+        </div>
+      </div>
+      
+      <div class="mode-option selected" data-mode="all">
+        <input type="radio" name="downloadMode" value="all" id="mode-all" checked>
+        <div class="mode-content">
+          <div class="mode-title">
+            <span class="mode-badge warning">متقدم</span>
+            جميع الصفحات تلقائياً
+          </div>
+          <div class="mode-description">
+            تحميل جميع الفواتير من كل الصفحات مع تتبع مفصل للتقدم (يستغرق وقت أطول)
+          </div>
+        </div>
+      </div>
+      
+      <div class="mode-option" data-mode="range">
+        <input type="radio" name="downloadMode" value="range" id="mode-range">
+        <div class="mode-content">
+          <div class="mode-title">
+            <span class="mode-badge">مخصص</span>
+            نطاق محدد من الصفحات
+          </div>
+          <div class="mode-description">
+            تحديد صفحات معينة للتحميل (من صفحة X إلى صفحة Y)
+            <div style="margin-top: 8px; display: none;" id="range-inputs">
+              <input type="number" id="startPage" placeholder="من صفحة" min="1" style="width: 70px; padding: 4px; margin: 0 4px; border: 1px solid #ddd; border-radius: 4px;">
+              <span>إلى</span>
+              <input type="number" id="endPage" placeholder="إلى صفحة" min="1" style="width: 70px; padding: 4px; margin: 0 4px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fields-container">
+    <div class="fields-header">
+      <i class="fas fa-list-check"></i> الحقول المطلوب تصديرها
+    </div>
+    <div class="fields-content">
+      <div class="select-all-container">
+        <div class="select-all-option">
+          <input type="checkbox" id="option-select-all">
+          <label for="option-select-all" class="select-all-label">
+            <i class="fas fa-check-double"></i> تحديد جميع الحقول
+          </label>
+        </div>
+      </div>
+
+      <div class="checkbox-grid">
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-serial-number" checked>
+          <label for="option-serial-number">مسلسل</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-details-button">
+          <label for="option-details-button">تفاصيل (زر عرض)</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-document-type" checked>
+          <label for="option-document-type">نوع المستند</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-document-version">
+          <label for="option-document-version">نسخة المستند</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-status" checked>
+          <label for="option-status">الحالة</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-issue-date" checked>
+          <label for="option-issue-date">تاريخ الإصدار</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-submission-date">
+          <label for="option-submission-date">تاريخ التقديم</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-invoice-currency">
+          <label for="option-invoice-currency">عملة الفاتورة</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-invoice-value" checked>
+          <label for="option-invoice-value">قيمة الفاتورة</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-vat-amount">
+          <label for="option-vat-amount">ضريبة القيمة المضافة</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-tax-discount">
+          <label for="option-tax-discount">الخصم تحت حساب الضريبة</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-total-invoice" checked>
+          <label for="option-total-invoice">إجمالي الفاتورة</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-internal-number" checked>
+          <label for="option-internal-number">الرقم الداخلي</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-electronic-number" checked>
+          <label for="option-electronic-number">الرقم الإلكتروني</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-seller-tax-number">
+          <label for="option-seller-tax-number">الرقم الضريبي للبائع</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-seller-name">
+          <label for="option-seller-name">اسم البائع</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-seller-address">
+          <label for="option-seller-address">عنوان البائع</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-buyer-tax-number">
+          <label for="option-buyer-tax-number">الرقم الضريبي للمشتري</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-buyer-name">
+          <label for="option-buyer-name">اسم المشتري</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-buyer-address">
+          <label for="option-buyer-address">عنوان المشتري</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-purchase-order-ref">
+          <label for="option-purchase-order-ref">مرجع طلب الشراء</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-purchase-order-desc">
+          <label for="option-purchase-order-desc">وصف طلب الشراء</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-sales-order-ref">
+          <label for="option-sales-order-ref">مرجع طلب المبيعات</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-electronic-signature">
+          <label for="option-electronic-signature">التوقيع الإلكتروني</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-food-drug-guide">
+          <label for="option-food-drug-guide">دليل الغذاء والدواء</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="option-external-link">
+          <label for="option-external-link">الرابط الخارجي</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="progress-container" id="progressContainer">
+    <div class="progress-header">
+      <div class="progress-title">جاري تحميل الفواتير...</div>
+      <button class="progress-cancel" id="cancelBtn">إلغاء</button>
+    </div>
+    
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    
+    <div class="progress-text" id="progressText">جاري البدء...</div>
+    
+    <div class="progress-details">
+      <div class="progress-detail">
+        <div class="progress-detail-value" id="processedPages">0</div>
+        <div class="progress-detail-label">صفحات مكتملة</div>
+      </div>
+      <div class="progress-detail">
+        <div class="progress-detail-value" id="processedInvoices">0</div>
+        <div class="progress-detail-label">فواتير محملة</div>
+      </div>
+      <div class="progress-detail">
+        <div class="progress-detail-value" id="estimatedTime">-</div>
+        <div class="progress-detail-label">الوقت المتبقي</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="buttons-container">
+    <div class="buttons-grid">
+      <button class="btn btn-excel" id="excelBtn">
+        <i class="fas fa-file-excel"></i> Excel
+      </button>
+      <button class="btn btn-json" id="jsonBtn">
+        <i class="fas fa-file-code"></i> JSON
+      </button>
+    </div>
+    <button class="btn btn-close" id="closeBtn">
+      <i class="fas fa-times"></i> إغلاق
+    </button>
+  </div>
+
+  <div class="status-container">
+    <div class="status" id="status" style="display: none;"></div>
+  </div>
+
+  <div class="disclaimer">
+    <i class="fas fa-info-circle"></i>
+    <strong>تنبيه:</strong> تحميل جميع الصفحات قد يستغرق وقتاً طويلاً حسب عدد الفواتير. 
+    يمكنك إلغاء العملية في أي وقت. البيانات محفوظة محلياً ولا يتم إرسالها لأي خادم خارجي.
+  </div>
+
+  <script src="libs/xlsx.full.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
