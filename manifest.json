@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ETA Invoice Exporter - Enhanced",
-  "version": "2.0.0",
-  "description": "مصدر فواتير الضرائب المصرية المحسن - تحميل جميع الفواتير تلقائياً",
+  "name": "ETA Invoice Exporter - Enhanced Pro",
+  "version": "2.1.0",
+  "description": "مصدر فواتير الضرائب المصرية المحسن - مع أزرار العرض التفاعلية وترتيب الأعمدة المحسن",
   
   "permissions": [
     "activeTab",

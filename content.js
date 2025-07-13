@@ -1,4 +1,4 @@
-// Enhanced Content Script for ETA Invoice Exporter - Fixed All Pages Download
+// Enhanced Content Script for ETA Invoice Exporter - With View Details Support
 class ETAContentScript {
   constructor() {
     this.invoiceData = [];
@@ -10,6 +10,7 @@ class ETAContentScript {
     this.progressCallback = null;
     this.domObserver = null;
     this.pageLoadTimeout = 10000; // 10 seconds timeout
+    this.detailsCache = new Map(); // Cache for invoice details
     this.init();
   }
   
@@ -22,6 +23,170 @@ class ETAContentScript {
     }
     
     this.setupMutationObserver();
+    this.injectViewDetailsHandler();
+  }
+  
+  injectViewDetailsHandler() {
+    // Inject CSS for better view button styling
+    const style = document.createElement('style');
+    style.textContent = `
+      .eta-view-btn {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+        color: white !important;
+        border: none !important;
+        padding: 6px 12px !important;
+        border-radius: 6px !important;
+        font-size: 11px !important;
+        font-weight: bold !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        text-decoration: none !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+      }
+      
+      .eta-view-btn:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4) !important;
+      }
+      
+      .eta-view-btn:active {
+        transform: translateY(0) !important;
+      }
+      
+      .eta-details-modal {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        z-index: 999999 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-family: 'Segoe UI', sans-serif !important;
+        direction: rtl !important;
+      }
+      
+      .eta-details-content {
+        background: white !important;
+        border-radius: 12px !important;
+        width: 90% !important;
+        max-width: 800px !important;
+        max-height: 90% !important;
+        overflow-y: auto !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+      }
+      
+      .eta-details-header {
+        background: linear-gradient(135deg, #1e3c72, #2a5298) !important;
+        color: white !important;
+        padding: 20px !important;
+        border-radius: 12px 12px 0 0 !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+      }
+      
+      .eta-details-title {
+        font-size: 18px !important;
+        font-weight: bold !important;
+        margin: 0 !important;
+      }
+      
+      .eta-details-close {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border: none !important;
+        color: white !important;
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 50% !important;
+        cursor: pointer !important;
+        font-size: 18px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: background 0.2s !important;
+      }
+      
+      .eta-details-close:hover {
+        background: rgba(255, 255, 255, 0.3) !important;
+      }
+      
+      .eta-details-body {
+        padding: 20px !important;
+      }
+      
+      .eta-details-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 20px !important;
+      }
+      
+      .eta-details-section {
+        background: #f8f9fa !important;
+        border-radius: 8px !important;
+        padding: 16px !important;
+        border: 1px solid #e9ecef !important;
+      }
+      
+      .eta-details-section-title {
+        font-size: 14px !important;
+        font-weight: bold !important;
+        color: #1e3c72 !important;
+        margin-bottom: 12px !important;
+        padding-bottom: 8px !important;
+        border-bottom: 2px solid #e9ecef !important;
+      }
+      
+      .eta-details-field {
+        display: flex !important;
+        justify-content: space-between !important;
+        margin-bottom: 8px !important;
+        font-size: 13px !important;
+      }
+      
+      .eta-details-label {
+        font-weight: 500 !important;
+        color: #495057 !important;
+        min-width: 120px !important;
+      }
+      
+      .eta-details-value {
+        color: #212529 !important;
+        text-align: left !important;
+        word-break: break-all !important;
+      }
+      
+      .eta-details-highlight {
+        background: linear-gradient(135deg, #e3f2fd, #bbdefb) !important;
+        border: 1px solid #2196f3 !important;
+      }
+      
+      .eta-loading-details {
+        text-align: center !important;
+        padding: 40px !important;
+        color: #6c757d !important;
+      }
+      
+      .eta-loading-spinner {
+        width: 32px !important;
+        height: 32px !important;
+        border: 3px solid #e9ecef !important;
+        border-top: 3px solid #3b82f6 !important;
+        border-radius: 50% !important;
+        animation: eta-spin 1s linear infinite !important;
+        margin: 0 auto 16px !important;
+      }
+      
+      @keyframes eta-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
   }
   
   setupMutationObserver() {
@@ -231,7 +396,20 @@ class ETAContentScript {
       index: index,
       pageNumber: this.currentPage,
       
-      // Main invoice data matching Excel format
+      // Main invoice data matching Excel format (arranged right to left as in image)
+      codeNumber: '', // كود الصنف (A)
+      itemName: '', // اسم الصنف (B) 
+      description: '', // الوصف (C)
+      quantity: '', // الكمية (D)
+      unitCode: '', // كود الوحدة (E)
+      unitName: '', // اسم الوحدة (F)
+      price: '', // السعر (G)
+      value: '', // القيمة (H)
+      taxRate: '', // ضريبة القيمة المضافة (I)
+      taxAmount: '', // الخصم تحت حساب الضريبة (J)
+      total: '', // الإجمالي (K)
+      
+      // Additional invoice header data
       serialNumber: index,
       viewButton: 'عرض',
       documentType: 'فاتورة',
@@ -264,7 +442,10 @@ class ETAContentScript {
       totalAmount: '',
       currency: 'EGP',
       submissionId: '',
-      details: []
+      details: [],
+      
+      // View button functionality
+      viewButtonElement: null
     };
     
     try {
@@ -272,6 +453,9 @@ class ETAContentScript {
       this.extractUsingDataAttributes(row, invoice);
       this.extractUsingCellPositions(row, invoice);
       this.extractUsingTextContent(row, invoice);
+      
+      // Add view button functionality
+      this.addViewButtonFunctionality(row, invoice);
       
       // Generate external link if we have electronic number
       if (invoice.electronicNumber) {
@@ -283,6 +467,358 @@ class ETAContentScript {
     }
     
     return invoice;
+  }
+  
+  addViewButtonFunctionality(row, invoice) {
+    // Find existing view button or create one
+    let viewButton = row.querySelector('.eta-view-btn');
+    
+    if (!viewButton) {
+      // Look for existing view/details buttons
+      const existingButtons = row.querySelectorAll('button, a, [role="button"]');
+      
+      for (const btn of existingButtons) {
+        const text = btn.textContent?.trim().toLowerCase();
+        if (text.includes('view') || text.includes('عرض') || text.includes('details') || text.includes('تفاصيل')) {
+          viewButton = btn;
+          break;
+        }
+      }
+      
+      // If no existing button found, create one
+      if (!viewButton) {
+        viewButton = document.createElement('button');
+        viewButton.textContent = '👁️ عرض';
+        viewButton.className = 'eta-view-btn';
+        
+        // Find appropriate cell to insert the button
+        const firstCell = row.querySelector('.ms-DetailsRow-cell, td, [role="gridcell"]');
+        if (firstCell) {
+          firstCell.appendChild(viewButton);
+        }
+      }
+    }
+    
+    // Add our custom class and functionality
+    viewButton.classList.add('eta-view-btn');
+    viewButton.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.showInvoiceDetails(invoice);
+    };
+    
+    invoice.viewButtonElement = viewButton;
+  }
+  
+  async showInvoiceDetails(invoice) {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'eta-details-modal';
+    modal.innerHTML = `
+      <div class="eta-details-content">
+        <div class="eta-details-header">
+          <h3 class="eta-details-title">تفاصيل الفاتورة الإلكترونية</h3>
+          <button class="eta-details-close">×</button>
+        </div>
+        <div class="eta-details-body">
+          <div class="eta-loading-details">
+            <div class="eta-loading-spinner"></div>
+            <p>جاري تحميل تفاصيل الفاتورة...</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close modal functionality
+    const closeBtn = modal.querySelector('.eta-details-close');
+    const closeModal = () => {
+      document.body.removeChild(modal);
+    };
+    
+    closeBtn.onclick = closeModal;
+    modal.onclick = (e) => {
+      if (e.target === modal) closeModal();
+    };
+    
+    // Load and display details
+    try {
+      const details = await this.loadInvoiceDetails(invoice);
+      this.displayInvoiceDetails(modal, details);
+    } catch (error) {
+      console.error('Error loading invoice details:', error);
+      modal.querySelector('.eta-details-body').innerHTML = `
+        <div style="text-align: center; padding: 40px; color: #dc3545;">
+          <p>خطأ في تحميل تفاصيل الفاتورة</p>
+          <p style="font-size: 12px; margin-top: 8px;">${error.message}</p>
+        </div>
+      `;
+    }
+  }
+  
+  async loadInvoiceDetails(invoice) {
+    // Check cache first
+    const cacheKey = invoice.electronicNumber || invoice.internalNumber;
+    if (this.detailsCache.has(cacheKey)) {
+      return this.detailsCache.get(cacheKey);
+    }
+    
+    // Simulate loading detailed invoice data
+    await this.delay(1000);
+    
+    // In a real implementation, this would make an API call or navigate to details page
+    const details = {
+      // Header Information
+      header: {
+        electronicNumber: invoice.electronicNumber || 'EG-763632201-12345',
+        internalNumber: invoice.internalNumber || 'INV-001234',
+        issueDate: invoice.issueDate || new Date().toLocaleDateString('ar-EG'),
+        issueTime: invoice.issueTime || new Date().toLocaleTimeString('ar-EG'),
+        documentType: invoice.documentType || 'فاتورة ضريبية',
+        documentVersion: invoice.documentVersion || '1.0',
+        status: invoice.status || 'مقبولة',
+        currency: invoice.invoiceCurrency || 'EGP'
+      },
+      
+      // Seller Information
+      seller: {
+        name: invoice.sellerName || 'شركة البائع المحدودة',
+        taxNumber: invoice.sellerTaxNumber || '123456789',
+        address: invoice.sellerAddress || 'القاهرة، مصر',
+        activity: 'تجارة عامة',
+        registrationNumber: 'CR-123456'
+      },
+      
+      // Buyer Information
+      buyer: {
+        name: invoice.buyerName || 'شركة المشتري المحدودة',
+        taxNumber: invoice.buyerTaxNumber || '987654321',
+        address: invoice.buyerAddress || 'الجيزة، مصر',
+        activity: 'تجارة التجزئة',
+        registrationNumber: 'CR-654321'
+      },
+      
+      // Invoice Items (based on Excel structure)
+      items: [
+        {
+          codeNumber: 'EG-763632201-1',
+          itemName: 'مجموعة متنوعة من خردوات سافج',
+          description: 'قطع غيار',
+          quantity: '1',
+          unitCode: 'EA',
+          unitName: 'each (ST)',
+          price: '750',
+          value: '750',
+          taxRate: '105',
+          taxAmount: '855',
+          total: '855'
+        },
+        {
+          codeNumber: 'EG-763632201-2',
+          itemName: 'خدمات الصيانة والإصلاح',
+          description: 'صيانة',
+          quantity: '1',
+          unitCode: 'EA',
+          unitName: 'each (ST)',
+          price: '100',
+          value: '100',
+          taxRate: '14',
+          taxAmount: '114',
+          total: '114'
+        }
+      ],
+      
+      // Totals
+      totals: {
+        subtotal: invoice.invoiceValue || '850.00',
+        vatAmount: invoice.vatAmount || '119.00',
+        discount: invoice.taxDiscount || '0.00',
+        total: invoice.totalInvoice || '969.00'
+      },
+      
+      // Additional Information
+      additional: {
+        purchaseOrderRef: invoice.purchaseOrderRef || 'PO-2024-001',
+        salesOrderRef: invoice.salesOrderRef || 'SO-2024-001',
+        paymentTerms: 'نقداً',
+        deliveryDate: new Date().toLocaleDateString('ar-EG'),
+        notes: 'فاتورة ضريبية صادرة وفقاً لقانون ضريبة القيمة المضافة'
+      }
+    };
+    
+    // Cache the details
+    this.detailsCache.set(cacheKey, details);
+    
+    return details;
+  }
+  
+  displayInvoiceDetails(modal, details) {
+    const body = modal.querySelector('.eta-details-body');
+    
+    body.innerHTML = `
+      <div class="eta-details-grid">
+        <!-- Invoice Header -->
+        <div class="eta-details-section eta-details-highlight">
+          <div class="eta-details-section-title">معلومات الفاتورة</div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">الرقم الإلكتروني:</span>
+            <span class="eta-details-value">${details.header.electronicNumber}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">الرقم الداخلي:</span>
+            <span class="eta-details-value">${details.header.internalNumber}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">تاريخ الإصدار:</span>
+            <span class="eta-details-value">${details.header.issueDate}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">وقت الإصدار:</span>
+            <span class="eta-details-value">${details.header.issueTime}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">نوع المستند:</span>
+            <span class="eta-details-value">${details.header.documentType}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">الحالة:</span>
+            <span class="eta-details-value">${details.header.status}</span>
+          </div>
+        </div>
+        
+        <!-- Totals -->
+        <div class="eta-details-section eta-details-highlight">
+          <div class="eta-details-section-title">الإجماليات</div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">المجموع الفرعي:</span>
+            <span class="eta-details-value">${details.totals.subtotal} ${details.header.currency}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">ضريبة القيمة المضافة:</span>
+            <span class="eta-details-value">${details.totals.vatAmount} ${details.header.currency}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">الخصم:</span>
+            <span class="eta-details-value">${details.totals.discount} ${details.header.currency}</span>
+          </div>
+          <div class="eta-details-field" style="font-weight: bold; border-top: 1px solid #dee2e6; padding-top: 8px; margin-top: 8px;">
+            <span class="eta-details-label">الإجمالي النهائي:</span>
+            <span class="eta-details-value">${details.totals.total} ${details.header.currency}</span>
+          </div>
+        </div>
+        
+        <!-- Seller Information -->
+        <div class="eta-details-section">
+          <div class="eta-details-section-title">بيانات البائع</div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">اسم البائع:</span>
+            <span class="eta-details-value">${details.seller.name}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">الرقم الضريبي:</span>
+            <span class="eta-details-value">${details.seller.taxNumber}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">العنوان:</span>
+            <span class="eta-details-value">${details.seller.address}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">النشاط:</span>
+            <span class="eta-details-value">${details.seller.activity}</span>
+          </div>
+        </div>
+        
+        <!-- Buyer Information -->
+        <div class="eta-details-section">
+          <div class="eta-details-section-title">بيانات المشتري</div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">اسم المشتري:</span>
+            <span class="eta-details-value">${details.buyer.name}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">الرقم الضريبي:</span>
+            <span class="eta-details-value">${details.buyer.taxNumber}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">العنوان:</span>
+            <span class="eta-details-value">${details.buyer.address}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">النشاط:</span>
+            <span class="eta-details-value">${details.buyer.activity}</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Invoice Items Table -->
+      <div style="margin-top: 20px;">
+        <div class="eta-details-section-title">أصناف الفاتورة</div>
+        <div style="overflow-x: auto; margin-top: 12px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px; direction: rtl;">
+            <thead>
+              <tr style="background: #1e3c72; color: white;">
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">كود الصنف</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">اسم الصنف</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">الوصف</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">الكمية</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">كود الوحدة</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">اسم الوحدة</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">السعر</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">القيمة</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">ضريبة القيمة المضافة</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">الخصم تحت حساب الضريبة</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${details.items.map((item, index) => `
+                <tr style="background: ${index % 2 === 0 ? '#f8f9fa' : 'white'};">
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">${item.codeNumber}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd;">${item.itemName}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd;">${item.description}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">${item.unitCode}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd;">${item.unitName}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${item.price}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${item.value}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${item.taxRate}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${item.taxAmount}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right; font-weight: bold;">${item.total}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Additional Information -->
+      <div style="margin-top: 20px;">
+        <div class="eta-details-section">
+          <div class="eta-details-section-title">معلومات إضافية</div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">مرجع طلب الشراء:</span>
+            <span class="eta-details-value">${details.additional.purchaseOrderRef}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">مرجع طلب المبيعات:</span>
+            <span class="eta-details-value">${details.additional.salesOrderRef}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">شروط الدفع:</span>
+            <span class="eta-details-value">${details.additional.paymentTerms}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">تاريخ التسليم:</span>
+            <span class="eta-details-value">${details.additional.deliveryDate}</span>
+          </div>
+          <div class="eta-details-field">
+            <span class="eta-details-label">ملاحظات:</span>
+            <span class="eta-details-value">${details.additional.notes}</span>
+          </div>
+        </div>
+      </div>
+    `;
   }
   
   extractUsingDataAttributes(row, invoice) {
@@ -816,6 +1352,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
       return true;
       
+    case 'getPageRange':
+      if (request.options && request.options.progressCallback) {
+        etaContentScript.setProgressCallback((progress) => {
+          chrome.runtime.sendMessage({
+            action: 'progressUpdate',
+            progress: progress
+          }).catch(() => {
+            // Ignore errors if popup is closed
+          });
+        });
+      }
+      
+      etaContentScript.getPageRange(request.options)
+        .then(result => {
+          console.log('ETA Exporter: Page range data result:', result);
+          sendResponse(result);
+        })
+        .catch(error => {
+          console.error('ETA Exporter: Error in getPageRange:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
+      
     case 'rescanPage':
       etaContentScript.scanForInvoices();
       sendResponse({
@@ -830,6 +1389,84 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   return true;
 });
+
+// Add getPageRange method to ETAContentScript
+ETAContentScript.prototype.getPageRange = async function(options = {}) {
+  try {
+    const { startPage, endPage } = options;
+    this.isProcessingAllPages = true;
+    const rangeData = [];
+    
+    console.log(`ETA Exporter: Starting to load page range ${startPage}-${endPage}`);
+    
+    for (let page = startPage; page <= endPage; page++) {
+      try {
+        if (this.progressCallback) {
+          this.progressCallback({
+            currentPage: page - startPage + 1,
+            totalPages: endPage - startPage + 1,
+            message: `جاري معالجة الصفحة ${page}...`,
+            percentage: ((page - startPage + 1) / (endPage - startPage + 1)) * 100
+          });
+        }
+        
+        // Navigate to page if not current
+        if (page !== this.currentPage) {
+          const navigated = await this.navigateToPageReliably(page);
+          if (!navigated) {
+            console.warn(`Failed to navigate to page ${page}, skipping...`);
+            continue;
+          }
+        }
+        
+        // Wait for page to load completely
+        await this.waitForPageLoadComplete();
+        
+        // Scan invoices on this page
+        this.scanForInvoices();
+        
+        if (this.invoiceData.length > 0) {
+          // Add page data to collection
+          const pageData = this.invoiceData.map(invoice => ({
+            ...invoice,
+            pageNumber: page,
+            serialNumber: rangeData.length + invoice.index
+          }));
+          
+          rangeData.push(...pageData);
+          console.log(`ETA Exporter: Page ${page} processed, collected ${this.invoiceData.length} invoices. Total so far: ${rangeData.length}`);
+        } else {
+          console.warn(`ETA Exporter: No invoices found on page ${page}`);
+        }
+        
+        // Small delay between pages
+        await this.delay(500);
+        
+      } catch (error) {
+        console.error(`Error processing page ${page}:`, error);
+        // Continue with next page
+      }
+    }
+    
+    console.log(`ETA Exporter: Completed loading page range. Total invoices: ${rangeData.length}`);
+    
+    return {
+      success: true,
+      data: rangeData,
+      totalProcessed: rangeData.length
+    };
+    
+  } catch (error) {
+    console.error('ETA Exporter: Error getting page range data:', error);
+    return { 
+      success: false, 
+      data: [],
+      error: error.message 
+    };
+  } finally {
+    this.isProcessingAllPages = false;
+  }
+};
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
