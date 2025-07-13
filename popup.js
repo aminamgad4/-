@@ -397,10 +397,10 @@ class ETAInvoiceExporter {
   generateExcelFile(data, selectedFields) {
     const wb = XLSX.utils.book_new();
     
-    // Create headers based on selected fields (arranged right to left as in Excel image)
+    // Create headers based on selected fields (RTL - A column starts from right)
     const headers = [];
     const fieldMap = {
-      // Column arrangement from right to left as shown in the Excel image
+      // RTL Column arrangement - A starts from right side
       code_number: 'كود الصنف', // A
       item_name: 'اسم الصنف', // B
       description: 'الوصف', // C
@@ -442,13 +442,13 @@ class ETAInvoiceExporter {
       external_link: 'الرابط الخارجي'
     };
     
-    // Build headers array based on selected fields (prioritize main columns first)
+    // Build headers array for RTL layout (main columns from right to left)
     const priorityFields = [
       'code_number', 'item_name', 'description', 'quantity', 'unit_code', 
       'unit_name', 'price', 'value', 'tax_rate', 'tax_amount', 'total'
     ];
     
-    // Add priority fields first
+    // Add priority fields first (these will appear from right to left)
     priorityFields.forEach(field => {
       if (selectedFields[field] && fieldMap[field]) {
         headers.push(fieldMap[field]);
@@ -468,7 +468,7 @@ class ETAInvoiceExporter {
     data.forEach((invoice, index) => {
       const row = [];
       
-      // Add priority fields first
+      // Add priority fields first (RTL order)
       priorityFields.forEach(field => {
         if (selectedFields[field]) {
           let value = '';
@@ -523,7 +523,12 @@ class ETAInvoiceExporter {
               value = index + 1;
               break;
             case 'details_button':
-              value = '👁️ عرض تفاصيل';
+              // Create a working hyperlink for invoice details
+              value = {
+                f: `HYPERLINK("https://invoicing.eta.gov.eg/documents/${invoice.electronicNumber || this.generateElectronicNumber()}/details","👁️ عرض تفاصيل")`,
+                t: 's',
+                v: '👁️ عرض تفاصيل'
+              };
               break;
             case 'document_type':
               value = invoice.documentType || 'فاتورة';
@@ -595,7 +600,13 @@ class ETAInvoiceExporter {
               value = invoice.foodDrugGuide || '';
               break;
             case 'external_link':
-              value = invoice.externalLink || this.generateExternalLink(invoice.electronicNumber);
+              // Create working external link
+              const externalLink = invoice.externalLink || this.generateExternalLink(invoice.electronicNumber);
+              value = {
+                f: `HYPERLINK("${externalLink}","🔗 رابط خارجي")`,
+                t: 's',
+                v: '🔗 رابط خارجي'
+              };
               break;
           }
           
@@ -608,7 +619,10 @@ class ETAInvoiceExporter {
     
     const ws = XLSX.utils.aoa_to_sheet(rows);
     
-    // Format the worksheet with enhanced styling
+    // Set RTL direction for the worksheet
+    ws['!dir'] = 'rtl';
+    
+    // Format the worksheet with RTL support and enhanced styling
     this.formatWorksheet(ws, headers.length, data.length);
     
     XLSX.utils.book_append_sheet(wb, ws, 'فواتير مصلحة الضرائب');
@@ -675,13 +689,14 @@ class ETAInvoiceExporter {
   
   generateExternalLink(electronicNumber) {
     const number = electronicNumber || this.generateElectronicNumber();
-    return `https://invoicing.eta.gov.eg/documents/${number}/share/123456`;
+    return `https://invoicing.eta.gov.eg/documents/${number}/share/${Math.floor(Math.random() * 999999)}`;
   }
   
   addDetailedItemsSheet(wb, data) {
     const itemsData = [
       ['تفاصيل أصناف الفواتير', '', '', '', '', '', '', '', '', '', ''],
       ['', '', '', '', '', '', '', '', '', '', ''],
+      // RTL header order
       ['كود الصنف', 'اسم الصنف', 'الوصف', 'الكمية', 'كود الوحدة', 'اسم الوحدة', 'السعر', 'القيمة', 'ضريبة القيمة المضافة', 'الخصم تحت حساب الضريبة', 'الإجمالي']
     ];
     
@@ -691,6 +706,7 @@ class ETAInvoiceExporter {
       
       for (let i = 0; i < itemCount; i++) {
         const price = this.generateRandomPrice();
+        // RTL data order to match headers
         itemsData.push([
           `EG-763632201-${invoiceIndex + 1}-${i + 1}`,
           `صنف ${invoiceIndex + 1}.${i + 1}`,
@@ -709,6 +725,11 @@ class ETAInvoiceExporter {
     
     const itemsWs = XLSX.utils.aoa_to_sheet(itemsData);
     
+    // Set RTL for items sheet
+    itemsWs['!dir'] = 'rtl';
+    if (!itemsWs['!worksheetViews']) itemsWs['!worksheetViews'] = [{}];
+    itemsWs['!worksheetViews'][0].rightToLeft = true;
+    
     // Format items sheet
     this.formatWorksheet(itemsWs, 11, itemsData.length - 3);
     
@@ -716,9 +737,17 @@ class ETAInvoiceExporter {
   }
   
   formatWorksheet(ws, headerCount, dataCount) {
-    // Set column widths
+    // Set column widths for RTL layout
     const colWidths = Array(headerCount).fill({ wch: 20 });
+    // Make view button column wider
+    if (headerCount > 1) {
+      colWidths[1] = { wch: 25 }; // Assuming view button is in second column
+    }
     ws['!cols'] = colWidths;
+    
+    // Set worksheet to RTL reading order
+    if (!ws['!worksheetViews']) ws['!worksheetViews'] = [{}];
+    ws['!worksheetViews'][0].rightToLeft = true;
     
     // Style header row
     const range = XLSX.utils.decode_range(ws['!ref']);
@@ -761,10 +790,14 @@ class ETAInvoiceExporter {
           }
         };
         
-        // Enhanced styling for view button
-        if (cellValue && cellValue.toString().includes('عرض')) {
+        // Enhanced styling for view button and external links
+        if (cellValue && (cellValue.toString().includes('عرض') || cellValue.toString().includes('رابط'))) {
           cellStyle.font = { bold: true, color: { rgb: "FFFFFF" } };
           cellStyle.fill = { fgColor: { rgb: "3B82F6" } };
+          // Add hyperlink styling
+          if (ws[cellAddress].f) {
+            cellStyle.font.underline = true;
+          }
         }
         
         ws[cellAddress].s = cellStyle;
