@@ -415,7 +415,7 @@ class ETAInvoiceExporter {
       
       // Additional fields
       serial_number: 'تسلسل',
-      details_button: 'عرض',
+      details_button: 'عرض التفاصيل',
       document_type: 'نوع المستند',
       document_version: 'نسخة المستند',
       status: 'الحالة',
@@ -523,12 +523,9 @@ class ETAInvoiceExporter {
               value = index + 1;
               break;
             case 'details_button':
-              // Create a working hyperlink for invoice details
-              value = {
-                f: `HYPERLINK("https://invoicing.eta.gov.eg/documents/${invoice.electronicNumber || this.generateElectronicNumber()}/details","👁️ عرض تفاصيل")`,
-                t: 's',
-                v: '👁️ عرض تفاصيل'
-              };
+              // Create a comment with detailed invoice information
+              const detailsText = this.generateInvoiceDetailsText(invoice, index);
+              value = 'عرض';
               break;
             case 'document_type':
               value = invoice.documentType || 'فاتورة';
@@ -622,6 +619,9 @@ class ETAInvoiceExporter {
     // Set RTL direction for the worksheet
     ws['!dir'] = 'rtl';
     
+    // Add detailed invoice information as comments to view buttons
+    this.addInvoiceDetailsComments(ws, data, selectedFields, headers);
+    
     // Format the worksheet with RTL support and enhanced styling
     this.formatWorksheet(ws, headers.length, data.length);
     
@@ -653,6 +653,91 @@ class ETAInvoiceExporter {
     const filename = `ETA_Invoices_Enhanced_${modeText}_${timestamp}.xlsx`;
     
     XLSX.writeFile(wb, filename);
+  }
+  
+  generateInvoiceDetailsText(invoice, index) {
+    return `تفاصيل الفاتورة رقم ${index + 1}
+
+معلومات أساسية:
+- الرقم الإلكتروني: ${invoice.electronicNumber || this.generateElectronicNumber()}
+- الرقم الداخلي: ${invoice.internalNumber || `INV-${String(index + 1).padStart(6, '0')}`}
+- تاريخ الإصدار: ${invoice.issueDate || new Date().toLocaleDateString('ar-EG')}
+- الحالة: ${invoice.status || 'مقبولة'}
+- نوع المستند: ${invoice.documentType || 'فاتورة'}
+
+بيانات البائع:
+- اسم البائع: ${invoice.sellerName || `شركة البائع ${index + 1}`}
+- الرقم الضريبي: ${invoice.sellerTaxNumber || this.generateTaxNumber()}
+- العنوان: ${invoice.sellerAddress || 'القاهرة، مصر'}
+
+بيانات المشتري:
+- اسم المشتري: ${invoice.buyerName || `شركة المشتري ${index + 1}`}
+- الرقم الضريبي: ${invoice.buyerTaxNumber || this.generateTaxNumber()}
+- العنوان: ${invoice.buyerAddress || 'الجيزة، مصر'}
+
+المبالغ المالية:
+- قيمة الفاتورة: ${invoice.invoiceValue || this.generateRandomPrice()} EGP
+- ضريبة القيمة المضافة: ${invoice.vatAmount || this.calculateTaxAmount(invoice.invoiceValue)} EGP
+- الإجمالي: ${invoice.totalInvoice || this.calculateTotal(invoice.invoiceValue)} EGP
+- العملة: ${invoice.invoiceCurrency || 'EGP'}
+
+معلومات إضافية:
+- مرجع طلب الشراء: ${invoice.purchaseOrderRef || `PO-${String(index + 1).padStart(6, '0')}`}
+- مرجع طلب المبيعات: ${invoice.salesOrderRef || `SO-${String(index + 1).padStart(6, '0')}`}
+- التوقيع الإلكتروني: ${invoice.electronicSignature || 'موقع إلكترونياً'}`;
+  }
+  
+  addInvoiceDetailsComments(ws, data, selectedFields, headers) {
+    // Find the column index for the details button
+    let detailsColumnIndex = -1;
+    let currentIndex = 0;
+    
+    // Check priority fields first
+    const priorityFields = [
+      'code_number', 'item_name', 'description', 'quantity', 'unit_code', 
+      'unit_name', 'price', 'value', 'tax_rate', 'tax_amount', 'total'
+    ];
+    
+    priorityFields.forEach(field => {
+      if (selectedFields[field]) {
+        if (field === 'details_button') {
+          detailsColumnIndex = currentIndex;
+        }
+        currentIndex++;
+      }
+    });
+    
+    // Check remaining fields
+    if (detailsColumnIndex === -1) {
+      Object.keys(selectedFields).forEach(field => {
+        if (selectedFields[field] && !priorityFields.includes(field)) {
+          if (field === 'details_button') {
+            detailsColumnIndex = currentIndex;
+          }
+          currentIndex++;
+        }
+      });
+    }
+    
+    // Add comments to the details button column
+    if (detailsColumnIndex !== -1) {
+      data.forEach((invoice, index) => {
+        const cellAddress = XLSX.utils.encode_cell({ r: index + 1, c: detailsColumnIndex });
+        const detailsText = this.generateInvoiceDetailsText(invoice, index);
+        
+        if (!ws[cellAddress]) {
+          ws[cellAddress] = { v: 'عرض', t: 's' };
+        }
+        
+        // Add comment with invoice details
+        if (!ws['!comments']) ws['!comments'] = [];
+        ws['!comments'].push({
+          ref: cellAddress,
+          author: 'ETA Invoice Exporter',
+          text: detailsText
+        });
+      });
+    }
   }
   
   generateRandomPrice() {
